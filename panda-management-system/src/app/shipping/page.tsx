@@ -1,0 +1,2 @@
+import Shell from "@/components/Shell";
+export default function ShippingPage(){return <Shell active="/shipping"><div className="page-heading"><div><h1>شركات الشحن والتسويات</h1><div className="subtitle">مرحلة قادمة ضمن خطة التنفيذ</div></div></div><div className="card"><h3 className="section-title">غير مكتمل بعد</h3><p>هذه الصفحة توثّق مكان الوحدة في واجهة النظام فقط. لم تُنفّذ بعد جداول شركات الشحن والتسويات والتحويلات الجزئية، لذلك لا تُدخل بيانات مالية هنا.</p></div></Shell>}

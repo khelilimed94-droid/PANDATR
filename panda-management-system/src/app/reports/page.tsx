@@ -1,0 +1,2 @@
+import Shell from "@/components/Shell";
+export default function ReportsPage(){return <Shell active="/reports"><div className="page-heading"><div><h1>التقارير</h1><div className="subtitle">تقارير الأداء والربحية والتدفق النقدي</div></div></div><div className="card"><h3 className="section-title">خطة التقارير</h3><p>سيتم بناء التقارير بعد اكتمال مصادر البيانات المحاسبية والتسويات والمصروفات. حاليًا، لا يعرض النظام صافي ربح أو سيولة لتجنب تقديم أرقام مضللة.</p></div></Shell>}

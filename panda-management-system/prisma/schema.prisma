@@ -1,0 +1,245 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  SALES_MANAGER
+  ORDER_ENTRY
+  INVENTORY
+  ACCOUNTANT
+  SHIPPING
+  READ_ONLY
+}
+
+enum OrderStatus {
+  NEW
+  CONFIRMING
+  CONFIRMED
+  PREPARING
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  REFUSED
+  DELIVERY_FAILED
+  RETURNED
+  CANCELLED
+}
+
+enum MovementType {
+  RECEIPT
+  RESERVE
+  RELEASE
+  SALE
+  RETURN
+  DAMAGE
+  LOSS
+  ADJUSTMENT
+  REVERSAL
+}
+
+enum CommissionStatus {
+  DUE
+  PARTIALLY_PAID
+  PAID
+  REVERSED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(ORDER_ENTRY)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  auditLogs    AuditLog[]
+  orders       Order[]  @relation("SellerOrders")
+}
+
+model Product {
+  id              String   @id @default(cuid())
+  sku             String   @unique
+  name            String
+  category        String?
+  description     String?
+  defaultPrice    Decimal  @db.Decimal(12, 2)
+  minimumStock    Int      @default(0)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  batches         StockBatch[]
+  orderItems      OrderItem[]
+  movements       StockMovement[]
+}
+
+model Supplier {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String?
+  email       String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  batches     StockBatch[]
+}
+
+model StockBatch {
+  id             String   @id @default(cuid())
+  productId      String
+  supplierId     String?
+  invoiceNumber  String?
+  purchasedAt    DateTime @default(now())
+  quantityIn     Int
+  quantityLeft   Int
+  unitCost       Decimal  @db.Decimal(12, 2)
+  extraCosts     Decimal  @default(0) @db.Decimal(12, 2)
+  createdAt      DateTime @default(now())
+  product        Product  @relation(fields: [productId], references: [id])
+  supplier       Supplier? @relation(fields: [supplierId], references: [id])
+  movements      StockMovement[]
+  @@index([productId, purchasedAt])
+}
+
+model StockMovement {
+  id          String       @id @default(cuid())
+  productId   String
+  batchId     String?
+  type        MovementType
+  quantity    Int
+  reference   String?
+  note        String?
+  createdAt   DateTime     @default(now())
+  product     Product      @relation(fields: [productId], references: [id])
+  batch       StockBatch?  @relation(fields: [batchId], references: [id])
+  @@index([productId, createdAt])
+}
+
+model Customer {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String
+  alternatePhone String?
+  province    String?
+  city        String?
+  address     String?
+  createdAt   DateTime @default(now())
+  orders      Order[]
+  @@index([phone])
+}
+
+model SellerCommissionSetting {
+  id             String   @id @default(cuid())
+  sellerId       String   @unique
+  amountPerOrder Decimal  @db.Decimal(12, 2)
+  updatedAt      DateTime @updatedAt
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique
+  customerId      String
+  sellerId        String?
+  status          OrderStatus @default(NEW)
+  shippingCompany String?
+  trackingNumber  String?
+  shippingCost    Decimal     @default(0) @db.Decimal(12, 2)
+  discount        Decimal     @default(0) @db.Decimal(12, 2)
+  totalAmount     Decimal     @db.Decimal(12, 2)
+  notes           String?
+  deliveredAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  customer        Customer    @relation(fields: [customerId], references: [id])
+  seller          User?       @relation("SellerOrders", fields: [sellerId], references: [id])
+  items           OrderItem[]
+  statusHistory   OrderStatusHistory[]
+  commission      Commission?
+  journalEntries  JournalEntry[]
+  @@index([status, createdAt])
+}
+
+model OrderItem {
+  id                String  @id @default(cuid())
+  orderId           String
+  productId         String
+  productNameSnapshot String
+  skuSnapshot       String
+  quantity          Int
+  unitPrice         Decimal @db.Decimal(12, 2)
+  unitCostSnapshot  Decimal @default(0) @db.Decimal(12, 2)
+  order              Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product            Product @relation(fields: [productId], references: [id])
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  orderId   String
+  fromStatus OrderStatus?
+  toStatus  OrderStatus
+  note      String?
+  changedBy String?
+  createdAt DateTime    @default(now())
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Commission {
+  id            String           @id @default(cuid())
+  orderId       String           @unique
+  sellerId      String
+  amount        Decimal          @db.Decimal(12, 2)
+  paidAmount    Decimal          @default(0) @db.Decimal(12, 2)
+  status        CommissionStatus @default(DUE)
+  earnedAt      DateTime         @default(now())
+  order         Order            @relation(fields: [orderId], references: [id])
+}
+
+model Account {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  type        String
+  active      Boolean  @default(true)
+  lines       JournalLine[]
+}
+
+model JournalEntry {
+  id          String   @id @default(cuid())
+  entryNumber String   @unique
+  date        DateTime @default(now())
+  description String
+  sourceType  String?
+  sourceId    String?
+  posted      Boolean  @default(false)
+  orderId     String?
+  order       Order?   @relation(fields: [orderId], references: [id])
+  lines       JournalLine[]
+  createdAt   DateTime @default(now())
+}
+
+model JournalLine {
+  id        String       @id @default(cuid())
+  entryId   String
+  accountId String
+  debit     Decimal      @default(0) @db.Decimal(12, 2)
+  credit    Decimal      @default(0) @db.Decimal(12, 2)
+  entry     JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account   Account      @relation(fields: [accountId], references: [id])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  beforeData Json?
+  afterData  Json?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id])
+  @@index([entityType, entityId, createdAt])
+}
